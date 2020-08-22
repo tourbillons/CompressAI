@@ -101,8 +101,17 @@ class AverageMeter:
         self.avg = self.sum / self.count
 
 
-def train_epoch(epoch, train_dataloader, model, criterion, optimizer,
-                aux_optimizer):
+# We need a custom DataParallel to access our custom module methods
+class CustomDataParallel(nn.DataParallel):
+    def __getattr__(self, key):
+        try:
+            return super().__getattr__(key)
+        except AttributeError:
+            return getattr(self.module, key)
+
+
+def train_one_epoch(epoch, train_dataloader, model, criterion, optimizer,
+                    aux_optimizer):
     model.train()
     device = next(model.parameters()).device
 
@@ -271,16 +280,25 @@ def main(argv):
                                  pin_memory=True)
 
     device = 'cuda' if args.cuda and torch.cuda.is_available() else 'cpu'
+
     net = AutoEncoder()
     net = net.to(device)
-    optimizer = optim.Adam(net.parameters(), lr=args.learning_rate)
-    aux_optimizer = optim.Adam(net.aux_parameters(), lr=args.aux_learning_rate)
+
+    if args.cuda and torch.cuda.device_count() > 1:
+        net = CustomDataParallel(net)
+
+    optimizer = optim.Adam((p for n, p in net.named_parameters() if 'entropy_bottleneck' not in n and p.requires_grad),
+                           lr=args.learning_rate)
+
+    aux_optimizer = optim.Adam((p for n, p in net.named_parameters() if 'entropy_bottleneck' in n and p.requires_grad),
+                               lr=args.aux_learning_rate)
+
     criterion = RateDistortionLoss(lmbda=args.lmbda)
 
     best_loss = 1e10
     for epoch in range(args.epochs):
-        train_epoch(epoch, train_dataloader, net, criterion, optimizer,
-                    aux_optimizer)
+        train_one_epoch(epoch, train_dataloader, net, criterion, optimizer,
+                        aux_optimizer)
 
         loss = test_epoch(epoch, test_dataloader, net, criterion)
 

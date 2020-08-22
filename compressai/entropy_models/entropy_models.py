@@ -78,9 +78,9 @@ class EntropyModel(nn.Module):
             self.likelihood_lower_bound = LowerBound(likelihood_bound)
 
         # to be filled on update()
-        self.register_buffer('_offset', torch.IntTensor())
-        self.register_buffer('_quantized_cdf', torch.IntTensor())
-        self.register_buffer('_cdf_length', torch.IntTensor())
+        self.register_buffer('_offset', torch.IntTensor(1))
+        self.register_buffer('_quantized_cdf', torch.IntTensor(1))
+        self.register_buffer('_cdf_length', torch.IntTensor(1))
 
     def forward(self, *args):
         raise NotImplementedError()
@@ -264,10 +264,6 @@ class EntropyBottleneck(EntropyModel):
         self.tail_mass = float(tail_mass)
 
         # Create parameters
-        self._biases = nn.ParameterList()
-        self._factors = nn.ParameterList()
-        self._matrices = nn.ParameterList()
-
         filters = (1, ) + self.filters + (1, )
         scale = self.init_scale**(1 / (len(self.filters) + 1))
         channels = self.channels
@@ -276,24 +272,25 @@ class EntropyBottleneck(EntropyModel):
             init = np.log(np.expm1(1 / scale / filters[i + 1]))
             matrix = torch.Tensor(channels, filters[i + 1], filters[i])
             matrix.data.fill_(init)
-            self._matrices.append(nn.Parameter(matrix))
+            setattr(self, f'_matrix{i:d}', nn.Parameter(matrix))
 
             bias = torch.Tensor(channels, filters[i + 1], 1)
             nn.init.uniform_(bias, -0.5, 0.5)
-            self._biases.append(nn.Parameter(bias))
+            setattr(self, f'_bias{i:d}', nn.Parameter(bias))
 
             if i < len(self.filters):
                 factor = torch.Tensor(channels, filters[i + 1], 1)
                 nn.init.zeros_(factor)
-                self._factors.append(nn.Parameter(factor))
+                setattr(self, f'_factor{i:d}', nn.Parameter(factor))
 
-        self.quantiles = nn.Parameter(torch.Tensor(channels, 1, 3))
-        init = torch.Tensor([-self.init_scale, 0, self.init_scale])
-        self.quantiles.data = init.repeat(self.quantiles.size(0), 1, 1)
+        quantiles = torch.Tensor([-self.init_scale, 0, self.init_scale])
+        quantiles = quantiles.repeat(channels, 1, 1)
+        self.quantiles = nn.Parameter(quantiles)
 
         target = np.log(2 / self.tail_mass - 1)
         self.register_buffer('target', torch.Tensor([-target, 0, target]))
 
+    @property
     def _medians(self):
         medians = self.quantiles[:, :, 1:2]
         return medians
@@ -347,21 +344,21 @@ class EntropyBottleneck(EntropyModel):
         return loss
 
     def _logits_cumulative(self, inputs, stop_gradient):
-        # TorchScript not yet working (nn.Mmodule indexing not supported)
+        # TorchScript not yet working (nn.Module indexing not supported)
         logits = inputs
         for i in range(len(self.filters) + 1):
-            matrix = self._matrices[i]
+            matrix = getattr(self, f'_matrix{i:d}')
             if stop_gradient:
                 matrix = matrix.detach()
             logits = torch.matmul(F.softplus(matrix), logits)
 
-            bias = self._biases[i]
+            bias = getattr(self, f'_bias{i:d}')
             if stop_gradient:
                 bias = bias.detach()
             logits += bias
 
-            if i < len(self._factors):
-                factor = self._factors[i]
+            if i < len(self.filters):
+                factor = getattr(self, f'_factor{i:d}')
                 if stop_gradient:
                     factor = factor.detach()
                 logits += torch.tanh(factor) * torch.tanh(logits)
@@ -390,7 +387,7 @@ class EntropyBottleneck(EntropyModel):
 
         outputs = self._quantize(values,
                                  'noise' if self.training else 'dequantize',
-                                 self._medians())
+                                 self._medians)
 
         if not torch.jit.is_scripting():
             likelihood = self._likelihood(outputs)
@@ -418,14 +415,14 @@ class EntropyBottleneck(EntropyModel):
 
     def compress(self, x):
         indexes = self._build_indexes(x.size())
-        medians = self._medians().detach().view(1, -1, 1, 1)
+        medians = self._medians.detach().view(1, -1, 1, 1)
         return super().compress(x, indexes, medians)
 
     def decompress(self, strings, size):
         output_size = (len(strings), self._quantized_cdf.size(0), size[0],
                        size[1])
         indexes = self._build_indexes(output_size)
-        medians = self._medians().detach().view(1, -1, 1, 1)
+        medians = self._medians.detach().view(1, -1, 1, 1)
         return super().decompress(strings, indexes, medians)
 
 

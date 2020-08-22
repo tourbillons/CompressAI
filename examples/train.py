@@ -103,6 +103,8 @@ class AverageMeter:
 
 # We need a custom DataParallel to access our custom module methods
 class CustomDataParallel(nn.DataParallel):
+    """Allow access to custom module methods.
+    """
     def __getattr__(self, key):
         try:
             return super().__getattr__(key)

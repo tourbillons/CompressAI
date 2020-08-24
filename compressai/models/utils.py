@@ -47,7 +47,7 @@ def _update_registered_buffer(module,
                               buffer_name,
                               state_dict_key,
                               state_dict,
-                              policy='resize_if_empty',
+                              policy='resize',
                               dtype=torch.int):
     new_size = state_dict[state_dict_key].size()
     registered_buf = find_named_buffer(module, buffer_name)
@@ -75,7 +75,7 @@ def update_registered_buffers(module,
                               module_name,
                               buffer_names,
                               state_dict,
-                              policy='resize_if_empty',
+                              policy='resize',
                               dtype=torch.int):
     """Update the registered buffers in a module according to the tensors sized
     in a state_dict.

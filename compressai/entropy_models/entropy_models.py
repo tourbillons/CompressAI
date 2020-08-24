@@ -78,9 +78,9 @@ class EntropyModel(nn.Module):
             self.likelihood_lower_bound = LowerBound(likelihood_bound)
 
         # to be filled on update()
-        self.register_buffer('_offset', torch.IntTensor(1))
-        self.register_buffer('_quantized_cdf', torch.IntTensor(1))
-        self.register_buffer('_cdf_length', torch.IntTensor(1))
+        self.register_buffer('cdf_offset', torch.IntTensor(1))
+        self.register_buffer('quantized_cdf', torch.IntTensor(1))
+        self.register_buffer('cdf_length', torch.IntTensor(1))
 
     def forward(self, *args):
         raise NotImplementedError()
@@ -142,27 +142,27 @@ class EntropyModel(nn.Module):
         return cdf
 
     def _check_cdf_size(self):
-        if self._quantized_cdf.numel() == 0:
+        if self.quantized_cdf.numel() == 0:
             raise ValueError('Uninitialized CDFs. Run update() first')
 
-        if len(self._quantized_cdf.size()) != 2:
-            raise ValueError(f'Invalid CDF size {self._quantized_cdf.size()}')
+        if len(self.quantized_cdf.size()) != 2:
+            raise ValueError(f'Invalid CDF size {self.quantized_cdf.size()}')
 
     def _check_offsets_size(self):
-        if self._offset.numel() == 0:
+        if self.cdf_offset.numel() == 0:
             raise ValueError('Uninitialized offsets. Run update() first')
 
-        if len(self._offset.size()) != 1 or \
-                self._offset.size(0) != self._quantized_cdf.size(0):
-            raise ValueError(f'Invalid offsets size {self._offset.size()}')
+        if len(self.cdf_offset.size()) != 1 or \
+                self.cdf_offset.size(0) != self.quantized_cdf.size(0):
+            raise ValueError(f'Invalid offsets size {self.cdf_offset.size()}')
 
     def _check_cdf_length(self):
-        if self._cdf_length.numel() == 0:
+        if self.cdf_length.numel() == 0:
             raise ValueError('Uninitialized CDF lengths. Run update() first')
 
-        if len(self._cdf_length.size()) != 1 or \
-                self._cdf_length.size(0) != self._cdf_length.size(0):
-            raise ValueError(f'Invalid CDF lengths size {self._cdf_length.size()}')
+        if len(self.cdf_length.size()) != 1 or \
+                self.cdf_length.size(0) != self.cdf_length.size(0):
+            raise ValueError(f'Invalid CDF lengths size {self.cdf_length.size()}')
 
     def compress(self, inputs, indexes, means=None):
         """
@@ -191,9 +191,9 @@ class EntropyModel(nn.Module):
             rv = self.entropy_coder.encode_with_indexes(
                 symbols[i].reshape(-1).int().tolist(),
                 indexes[i].reshape(-1).int().tolist(),
-                self._quantized_cdf.tolist(),
-                self._cdf_length.reshape(-1).int().tolist(),
-                self._offset.reshape(-1).int().tolist())
+                self.quantized_cdf.tolist(),
+                self.cdf_length.reshape(-1).int().tolist(),
+                self.cdf_offset.reshape(-1).int().tolist())
             strings.append(rv)
         return strings
 
@@ -227,14 +227,14 @@ class EntropyModel(nn.Module):
                     (means.size(2) != 1 or means.size(3) != 1):
                 raise ValueError('Invalid means parameters')
 
-        cdf = self._quantized_cdf
+        cdf = self.quantized_cdf
         outputs = cdf.new(indexes.size())
 
         for i, s in enumerate(strings):
             values = self.entropy_coder.decode_with_indexes(
                 s, indexes[i].reshape(-1).int().tolist(), cdf.tolist(),
-                self._cdf_length.reshape(-1).int().tolist(),
-                self._offset.reshape(-1).int().tolist())
+                self.cdf_length.reshape(-1).int().tolist(),
+                self.cdf_offset.reshape(-1).int().tolist())
             outputs[i] = torch.Tensor(values).reshape(outputs[i].size())
         outputs = self._dequantize(outputs, means)
         return outputs
@@ -299,7 +299,7 @@ class EntropyBottleneck(EntropyModel):
     def update(self, force=False):
         # Check if we need to update the bottleneck parameters, the offsets are
         # only computed and stored when the conditonal model is update()'d.
-        if self._offset.numel() > 0 and not force:  # pylint: disable=E0203
+        if self.cdf_offset.numel() > 0 and not force:  # pylint: disable=E0203
             return
 
         medians = self.quantiles[:, 0, 1]
@@ -312,7 +312,7 @@ class EntropyBottleneck(EntropyModel):
         maxima = torch.ceil(maxima).int()
         maxima = torch.clamp(maxima, min=0)
 
-        self._offset = -minima
+        self.cdf_offset = -minima
 
         pmf_start = medians - minima
         pmf_length = maxima + minima + 1
@@ -336,8 +336,8 @@ class EntropyBottleneck(EntropyModel):
 
         quantized_cdf = self._pmf_to_cdf(pmf, tail_mass, pmf_length,
                                          max_length)
-        self._quantized_cdf = quantized_cdf
-        self._cdf_length = pmf_length + 2
+        self.quantized_cdf = quantized_cdf
+        self.cdf_length = pmf_length + 2
 
     def loss(self):
         logits = self._logits_cumulative(self.quantiles, stop_gradient=True)
@@ -420,7 +420,7 @@ class EntropyBottleneck(EntropyModel):
         return super().compress(x, indexes, medians)
 
     def decompress(self, strings, size):
-        output_size = (len(strings), self._quantized_cdf.size(0), size[0],
+        output_size = (len(strings), self.quantized_cdf.size(0), size[0],
                        size[1])
         indexes = self._build_indexes(output_size)
         medians = self._get_medians().detach().view(1, -1, 1, 1)
@@ -493,7 +493,7 @@ class GaussianConditional(EntropyModel):
         # Check if we need to update the gaussian conditional parameters, the
         # offsets are only computed and stored when the conditonal model is
         # updated.
-        if self._offset.numel() > 0 and not force:
+        if self.cdf_offset.numel() > 0 and not force:
             return
         self.scale_table = self._prepare_scale_table(scale_table)
         self.update()
@@ -518,9 +518,9 @@ class GaussianConditional(EntropyModel):
         quantized_cdf = torch.Tensor(len(pmf_length), max_length + 2)
         quantized_cdf = self._pmf_to_cdf(pmf, tail_mass, pmf_length,
                                          max_length)
-        self._quantized_cdf = quantized_cdf
-        self._offset = -pmf_center
-        self._cdf_length = pmf_length + 2
+        self.quantized_cdf = quantized_cdf
+        self.cdf_offset = -pmf_center
+        self.cdf_length = pmf_length + 2
 
     def _likelihood(self, inputs, scales, means=None):
         # type: (Tensor, Tensor, Optional[Tensor]) -> Tensor

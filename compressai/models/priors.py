@@ -86,7 +86,7 @@ class CompressionModel(nn.Module):
         # Dynamically update the entropy bottleneck buffers related to the CDFs
         update_registered_buffers(self.entropy_bottleneck,
                                   'entropy_bottleneck',
-                                  ['_quantized_cdf', '_offset', '_cdf_length'],
+                                  ['quantized_cdf', 'cdf_offset', 'cdf_length'],
                                   state_dict)
         super().load_state_dict(state_dict)
 
@@ -243,7 +243,7 @@ class ScaleHyperprior(CompressionModel):
         # Dynamically update the entropy bottleneck buffers related to the CDFs
         update_registered_buffers(
             self.gaussian_conditional, 'gaussian_conditional',
-            ['_quantized_cdf', '_offset', '_cdf_length', 'scale_table'],
+            ['quantized_cdf', 'cdf_offset', 'cdf_length', 'scale_table'],
             state_dict)
         super().load_state_dict(state_dict)
 
@@ -483,9 +483,9 @@ class JointAutoregressiveHierarchicalPriors(CompressionModel):
 
         # yapf: enable
         # pylint: disable=protected-access
-        cdf = self.gaussian_conditional._quantized_cdf.tolist()
-        cdf_lengths = self.gaussian_conditional._cdf_length.reshape(-1).int().tolist()
-        offsets = self.gaussian_conditional._offset.reshape(-1).int().tolist()
+        cdf = self.gaussian_conditional.quantized_cdf.tolist()
+        cdf_lengths = self.gaussian_conditional.cdf_length.reshape(-1).int().tolist()
+        offsets = self.gaussian_conditional.cdf_offset.reshape(-1).int().tolist()
         # pylint: enable=protected-access
 
         y_strings = []
@@ -549,9 +549,9 @@ class JointAutoregressiveHierarchicalPriors(CompressionModel):
         decoder = RansDecoder()
 
         # pylint: disable=protected-access
-        cdf = self.gaussian_conditional._quantized_cdf.tolist()
-        cdf_lengths = self.gaussian_conditional._cdf_length.reshape(-1).int().tolist()
-        offsets = self.gaussian_conditional._offset.reshape(-1).int().tolist()
+        cdf = self.gaussian_conditional.quantized_cdf.tolist()
+        cdf_lengths = self.gaussian_conditional.cdf_length.reshape(-1).int().tolist()
+        offsets = self.gaussian_conditional.cdf_offset.reshape(-1).int().tolist()
 
         # Warning: this is slow due to the auto-regressive nature of the
         # decoding... See more recent publication where they use an
@@ -601,6 +601,6 @@ class JointAutoregressiveHierarchicalPriors(CompressionModel):
     def load_state_dict(self, state_dict):
         update_registered_buffers(
             self.gaussian_conditional, 'gaussian_conditional',
-            ['_quantized_cdf', '_offset', '_cdf_length', 'scale_table'],
+            ['quantized_cdf', 'cdf_offset', 'cdf_length', 'scale_table'],
             state_dict)
         super().load_state_dict(state_dict)

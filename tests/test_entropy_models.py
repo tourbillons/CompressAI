@@ -93,20 +93,20 @@ class TestEntropyModel:
     def test_invalid_cdf_length(self, entropy_model):
         x = torch.rand(1, 32, 16, 16)
         indexes = torch.rand(1, 32, 16, 16)
-        entropy_model._quantized_cdf.resize_(32, 1)
+        entropy_model.quantized_cdf.resize_(32, 1)
 
         with pytest.raises(ValueError):
             entropy_model.compress(x, indexes)
 
-        entropy_model._cdf_length.resize_(32, 1)
+        entropy_model.cdf_length.resize_(32, 1)
         with pytest.raises(ValueError):
             entropy_model.compress(x, indexes)
 
     def test_invalid_offsets(self, entropy_model):
         x = torch.rand(1, 32, 16, 16)
         indexes = torch.rand(1, 32, 16, 16)
-        entropy_model._quantized_cdf.resize_(32, 1)
-        entropy_model._cdf_length.resize_(32)
+        entropy_model.quantized_cdf.resize_(32, 1)
+        entropy_model.cdf_length.resize_(32)
         with pytest.raises(ValueError):
             entropy_model.compress(x, indexes)
 

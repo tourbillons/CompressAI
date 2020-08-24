@@ -68,8 +68,8 @@ def test_valid(tmpdir):
     files = list(Path(tmpdir).glob('*.pth.tar'))
     assert len(files) == 1
 
-    cdf_len = net.state_dict()['entropy_bottleneck._cdf_length']
-    new_cdf_len = torch.load(files[0])['entropy_bottleneck._cdf_length']
+    cdf_len = net.state_dict()['entropy_bottleneck.cdf_length']
+    new_cdf_len = torch.load(files[0])['entropy_bottleneck.cdf_length']
     assert cdf_len.size(0) != new_cdf_len.size(0)
 
 
@@ -105,8 +105,8 @@ def test_valid_no_update(tmpdir):
     files = list(Path(tmpdir).glob('*.pth.tar'))
     assert len(files) == 1
 
-    cdf_len = net.state_dict()['entropy_bottleneck._cdf_length']
-    new_cdf_len = torch.load(files[0])['entropy_bottleneck._cdf_length']
+    cdf_len = net.state_dict()['entropy_bottleneck.cdf_length']
+    new_cdf_len = torch.load(files[0])['entropy_bottleneck.cdf_length']
     assert cdf_len.size(0) == new_cdf_len.size(0)
 
 

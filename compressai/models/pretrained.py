@@ -12,6 +12,10 @@ def rename_key(key):
     if key.startswith('entropy_bottleneck._factors.'):
         return f'entropy_bottleneck._factor{key[-1]}'
 
+    # Deal with module trained with DataParallel
+    if key.startswith('module.'):
+        return key[7:]
+
     return key
 
 

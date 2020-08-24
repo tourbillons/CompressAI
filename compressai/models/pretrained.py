@@ -2,7 +2,7 @@ def rename_key(key):
     """Rename keys to new format.
     """
 
-    # Deal with EntropyBottleneck move from nn.ParameterList to nn.Parameter's
+    # Handle EntropyBottleneck move from nn.ParameterList to nn.Parameter's
     if key.startswith('entropy_bottleneck._biases.'):
         return f'entropy_bottleneck._bias{key[-1]}'
 

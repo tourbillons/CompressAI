@@ -19,7 +19,7 @@ from compressai.models import (FactorizedPrior, ScaleHyperprior,
                                JointAutoregressiveHierarchicalPriors,
                                Cheng2020Anchor, Cheng2020Attention)
 
-from .pretrained import load_pretrained
+from compressai.models.pretrained import load_pretrained
 
 __all__ = [
     'bmshj2018_factorized',

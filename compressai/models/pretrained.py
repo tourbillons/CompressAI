@@ -14,15 +14,15 @@ def rename_key(key):
 
     # Rename EntropyBottleneck keys
     modules_name = ['entropy_bottleneck', 'gaussian_conditional']
-    new_names_map = {
+    new_keys_map = {
         '_offset': 'cdf_offset',
         '_quantized_cdf': 'quantized_cdf',
         '_cdf_length': 'cdf_length',
     }
-    for name in modules_name:
-        for k, new_k in new_names_map.items():
-            if f'{name}.{k}' == key:
-                return f'{name}.{new_k}'
+    for module_name in modules_name:
+        for k, new_k in new_keys_map.items():
+            if f'{module_name}.{k}' == key:
+                return f'{module_name}.{new_k}'
 
     # Deal with module trained with DataParallel
     if key.startswith('module.'):

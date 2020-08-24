@@ -19,6 +19,8 @@ from compressai.models import (FactorizedPrior, ScaleHyperprior,
                                JointAutoregressiveHierarchicalPriors,
                                Cheng2020Anchor, Cheng2020Attention)
 
+from .pretrained import load_pretrained
+
 __all__ = [
     'bmshj2018_factorized',
     'bmshj2018_hyperprior',
@@ -182,6 +184,7 @@ def _load_model(architecture,
 
         url = model_urls[architecture][metric][quality]
         state_dict = load_state_dict_from_url(url, progress=progress)
+        state_dict = load_pretrained(state_dict)
         model = model_architectures[architecture].from_state_dict(state_dict)
         return model
 

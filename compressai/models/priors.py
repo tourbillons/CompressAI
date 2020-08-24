@@ -82,6 +82,14 @@ class CompressionModel(nn.Module):
                 continue
             m.update(force=force)
 
+    def load_state_dict(self, state_dict):
+        # Dynamically update the entropy bottleneck buffers related to the CDFs
+        update_registered_buffers(self.entropy_bottleneck,
+                                  'entropy_bottleneck',
+                                  ['_quantized_cdf', '_offset', '_cdf_length'],
+                                  state_dict)
+        super().load_state_dict(state_dict)
+
 
 class FactorizedPrior(CompressionModel):
     r"""Factorized Prior model from J. Balle, D. Minnen, S. Singh, S.J. Hwang,
@@ -128,14 +136,6 @@ class FactorizedPrior(CompressionModel):
                 'y': y_likelihoods,
             },
         }
-
-    def load_state_dict(self, state_dict):
-        # Dynamically update the entropy bottleneck buffers related to the CDFs
-        update_registered_buffers(self.entropy_bottleneck,
-                                  'entropy_bottleneck',
-                                  ['_quantized_cdf', '_offset', '_cdf_length'],
-                                  state_dict)
-        super().load_state_dict(state_dict)
 
     @classmethod
     def from_state_dict(cls, state_dict):
@@ -241,10 +241,6 @@ class ScaleHyperprior(CompressionModel):
 
     def load_state_dict(self, state_dict):
         # Dynamically update the entropy bottleneck buffers related to the CDFs
-        update_registered_buffers(self.entropy_bottleneck,
-                                  'entropy_bottleneck',
-                                  ['_quantized_cdf', '_offset', '_cdf_length'],
-                                  state_dict)
         update_registered_buffers(
             self.gaussian_conditional, 'gaussian_conditional',
             ['_quantized_cdf', '_offset', '_cdf_length', 'scale_table'],
@@ -603,11 +599,6 @@ class JointAutoregressiveHierarchicalPriors(CompressionModel):
         super().update(force=force)
 
     def load_state_dict(self, state_dict):
-        # Dynamically update the entropy bottleneck buffers related to the CDFs
-        update_registered_buffers(self.entropy_bottleneck,
-                                  'entropy_bottleneck',
-                                  ['_quantized_cdf', '_offset', '_cdf_length'],
-                                  state_dict)
         update_registered_buffers(
             self.gaussian_conditional, 'gaussian_conditional',
             ['_quantized_cdf', '_offset', '_cdf_length', 'scale_table'],

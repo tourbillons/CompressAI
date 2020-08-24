@@ -142,27 +142,18 @@ class EntropyModel(nn.Module):
         return cdf
 
     def _check_cdf_size(self):
-        if self.quantized_cdf.numel() == 0:
-            raise ValueError('Uninitialized CDFs. Run update() first')
-
         if len(self.quantized_cdf.size()) != 2:
             raise ValueError(f'Invalid CDF size {self.quantized_cdf.size()}')
 
     def _check_offsets_size(self):
-        if self.cdf_offset.numel() == 0:
-            raise ValueError('Uninitialized offsets. Run update() first')
-
         if len(self.cdf_offset.size()) != 1 or \
                 self.cdf_offset.size(0) != self.quantized_cdf.size(0):
             raise ValueError(f'Invalid offsets size {self.cdf_offset.size()}')
 
     def _check_cdf_length(self):
-        if self.cdf_length.numel() == 0:
-            raise ValueError('Uninitialized CDF lengths. Run update() first')
-
         if len(self.cdf_length.size()) != 1 or \
                 self.cdf_length.size(0) != self.cdf_length.size(0):
-            raise ValueError(f'Invalid CDF lengths size {self.cdf_length.size()}')
+            raise ValueError(f'Invalid CDF length size {self.cdf_length.size()}')
 
     def compress(self, inputs, indexes, means=None):
         """
@@ -291,6 +282,11 @@ class EntropyBottleneck(EntropyModel):
 
         target = np.log(2 / self.tail_mass - 1)
         self.register_buffer('target', torch.Tensor([-target, 0, target]))
+
+    def _check_cdf_size(self):
+        super()._check_cdf_size()
+        if self.quantized_cdf.size(0) != self.channels:
+            raise ValueError(f'Invalid CDF size {self.quantized_cdf.size()}')
 
     def _get_medians(self):
         medians = self.quantiles[:, :, 1:2]

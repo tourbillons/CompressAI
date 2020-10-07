@@ -61,3 +61,40 @@ class ImageFolder(Dataset):
 
     def __len__(self):
         return len(self.samples)
+
+class CustomImageFolder(Dataset):
+    """Load custom image folder database. Training and testing image samples
+    are respectively stored in separate directories:
+
+    Args:
+        root (string): root directory of the dataset
+        transform (callable, optional): a function or transform that takes in a
+            PIL image and returns a transformed version
+        split (string): split mode ('train' or 'val')
+    """
+    def __init__(self, root, transform=None, split='train'):
+        splitdir = Path(root) / split
+
+        if not splitdir.is_dir():
+            raise RuntimeError(f'Invalid directory "{root}"')
+
+        self.samples = [f for f in splitdir.iterdir() if f.is_file() and 'label' not in f.name]
+
+        self.transform = transform
+
+    def __getitem__(self, index):
+        """
+        Args:
+            index (int): Index
+
+        Returns:
+            img: `PIL.Image.Image` or transformed `PIL.Image.Image`.
+        """
+        img = Image.open(self.samples[index]).convert('RGB')
+        img_label = Image.open(self.samples[index].parent/(self.samples[0].stem + '_label.png')).convert('RGB')
+        if self.transform:
+            return self.transform(img), self.transform(img_label)
+        return img, img_label
+
+    def __len__(self):
+        return len(self.samples)

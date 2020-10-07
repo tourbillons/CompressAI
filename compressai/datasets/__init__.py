@@ -13,5 +13,6 @@
 # limitations under the License.
 
 from .utils import ImageFolder
+from .utils import CustomImageFolder
 
 __all__ = ['ImageFolder', 'CustomImageFolder']

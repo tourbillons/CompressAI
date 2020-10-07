@@ -25,7 +25,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from torchvision import transforms
 
-from compressai.datasets import ImageFolder
+from compressai.datasets import CustomImageFolder
 from compressai.layers import GDN
 from compressai.models import CompressionModel
 from compressai.models.utils import conv, deconv
@@ -111,14 +111,18 @@ def train_one_epoch(
     device = next(model.parameters()).device
 
     for i, d in enumerate(train_dataloader):
-        d = d.to(device)
+        img = d[0]
+        label = d[1]
+        #d = d.to(device)
+        img = img.to(device)
+        label = label.to(device)
 
         optimizer.zero_grad()
         aux_optimizer.zero_grad()
 
-        out_net = model(d)
+        out_net = model(img)
 
-        out_criterion = criterion(out_net, d)
+        out_criterion = criterion(out_net, img)
         out_criterion["loss"].backward()
         if clip_max_norm > 0:
             torch.nn.utils.clip_grad_norm_(model.parameters(), clip_max_norm)
@@ -151,9 +155,13 @@ def test_epoch(epoch, test_dataloader, model, criterion):
 
     with torch.no_grad():
         for d in test_dataloader:
-            d = d.to(device)
-            out_net = model(d)
-            out_criterion = criterion(out_net, d)
+            img = d[0]
+            label = d[1]
+            img = img.to(device)
+            label = label.to(device)
+            #d = d.to(device)
+            out_net = model(img)
+            out_criterion = criterion(out_net, img)
 
             aux_loss.update(model.aux_loss())
             bpp_loss.update(out_criterion["bpp_loss"])
@@ -259,15 +267,15 @@ def main(argv):
         random.seed(args.seed)
 
     train_transforms = transforms.Compose(
-        [transforms.RandomCrop(args.patch_size), transforms.ToTensor()]
+        [transforms.ToTensor()]
     )
 
     test_transforms = transforms.Compose(
-        [transforms.CenterCrop(args.patch_size), transforms.ToTensor()]
+        [transforms.ToTensor()]
     )
 
-    train_dataset = ImageFolder(args.dataset, split="train", transform=train_transforms)
-    test_dataset = ImageFolder(args.dataset, split="test", transform=test_transforms)
+    train_dataset = CustomImageFolder(args.dataset, split="train", transform=train_transforms)
+    test_dataset = CustomImageFolder(args.dataset, split="test", transform=test_transforms)
 
     train_dataloader = DataLoader(
         train_dataset,
